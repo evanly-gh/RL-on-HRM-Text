@@ -87,11 +87,15 @@ def main():
 
     for r in rows:
         condition = r.get("condition", "direct")
-        if condition not in cond_map:
-            raise ValueError(
-                f"sample condition {condition!r} not in --conditions map "
-                f"(known: {sorted(cond_map)})"
-            )
+        # Support comma-separated conditions e.g. "cot,synth"
+        cond_tags = [c.strip() for c in condition.split(",")]
+        for tag in cond_tags:
+            if tag not in cond_map:
+                raise ValueError(
+                    f"sample condition tag {tag!r} (from {condition!r}) not in --conditions map "
+                    f"(known: {sorted(cond_map)})"
+                )
+        cond_ids = [cond_map[tag] for tag in cond_tags]
 
         inst_ids = tok.encode(r["instruction"], add_special_tokens=False).ids
         resp_ids = tok.encode(r["response"], add_special_tokens=False).ids
@@ -104,7 +108,7 @@ def main():
 
         i_start = len(all_tokens)
         all_tokens.append(boq_id)
-        all_tokens.append(cond_map[condition])
+        all_tokens.extend(cond_ids)   # one token per condition tag
         all_tokens.extend(inst_ids)
         all_tokens.append(eoq_id)
         inst_start.append(i_start)
