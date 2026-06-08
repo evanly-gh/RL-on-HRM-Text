@@ -1,1 +1,1 @@
-{"tokenizer_path": "sft-data\\sft_tokenized", "boq": "<|im_start|>", "eoq": "<|im_end|>", "eoa": "<|box_end|>", "condition_mapping": {"direct": "<|object_ref_start|>", "cot": "<|object_ref_end|>", "noisy": "<|quad_start|>", "synth": "<|quad_end|>"}, "vocab_size": 65536}
+{"tokenizer_path": "sft-data/sft_tokenized", "boq": "<|im_start|>", "eoq": "<|im_end|>", "eoa": "<|box_end|>", "condition_mapping": {"direct": "<|object_ref_start|>", "cot": "<|object_ref_end|>", "noisy": "<|quad_start|>", "synth": "<|quad_end|>"}, "vocab_size": 65536}

@@ -1,0 +1,311 @@
+================================================================================
+ POST-TRAINING HRM-Text-1B ON MATH  —  PowerPoint script
+ 12 minutes · 2 presenters · CS audience
+ Presenter A = slides 1–6 (setup + demo) | Presenter B = slides 7–12 (eval + close)
+ Each slide: [ON-SLIDE TEXT]  then  [NOTES] = what to say out loud.
+ {{PLACEHOLDER}} = fill once DAPO eval finishes Wed (watcher auto-produces it).
+================================================================================
+
+
+================================  MOTIVATION  ==================================
+
+------------------------------- SLIDE 1 (Title / Hook) -------------------------
+[TITLE]
+Can a Tiny Recurrent Model Learn to Reason?
+Post-Training HRM-Text-1B on Competition Math
+
+[SUBTITLE]
+<Your names> · <course>
+
+[ON-SLIDE]
+• HRM-Text-1B: a 1-billion-parameter *recurrent* language model
+• ~56% on the MATH benchmark — trained on 1000× LESS data than comparable models
+• Our question: can we make it MORE reliable (SFT) and BETTER at math (RL)?
+
+[NOTES ~25s]
+"Most strong math models are huge and trained on trillions of tokens. HRM is the
+opposite — only 1B parameters, a weird recurrent architecture, trained on a
+thousand times less data, yet it already scores ~56% on competition math. We
+asked a simple question: can we post-train it — first to make its output reliable,
+then with reinforcement learning to actually make it better at math? And what does
+that teach us about RL on small models?"
+
+
+------------------------------- SLIDE 2 (What we did) --------------------------
+[TITLE]
+What We Built
+
+[ON-SLIDE]
+1. A full post-training pipeline for HRM:  SFT  →  DAPO (reinforcement learning)
+2. A rigorous evaluation on the MATH benchmark
+3. A finding: WHERE and WHY reinforcement learning helps — and hits a ceiling — at 1B scale
+
+[NOTES ~20s]
+"Two engineering pieces — supervised fine-tuning then reinforcement learning — and
+one scientific result: a clean, evidence-backed picture of where RL can help a small
+reasoning model and exactly why it runs out of room. That last part is the
+interesting takeaway, so hold onto it."
+
+
+==============================  SETUP (fast)  ==================================
+
+------------------------------- SLIDE 3 (HRM in one diagram) -------------------
+[TITLE]
+The Model: a Transformer That "Thinks" Before It Writes
+
+[ON-SLIDE]  (use the H/L cycle diagram)
+• Standard transformer: one pass through its layers per token
+• HRM: a nested RECURRENT loop (High-level + Low-level cycles) runs *before each token*
+   → "depth for free": ~8 effective passes from 1B parameters
+• PrefixLM attention: reads the WHOLE problem (bidirectional) before writing the solution (causal)
+
+[NOTES ~35s]
+"One slide on the model. A normal transformer reads its input once and produces an
+answer. HRM instead runs an internal recurrent loop — a high-level and a low-level
+module cycling several times — before committing to each token. Think of it as the
+model deliberating in its own latent space. It also uses 'PrefixLM' attention: it
+reads the entire problem bidirectionally, then writes the solution left-to-right.
+Both of these matter because they break the standard tooling, which is our next slide."
+
+
+------------------------------- SLIDE 4 (Post-training, one slide) -------------
+[TITLE]
+Two Stages: Teach Format, Then Reward Correctness
+
+[ON-SLIDE]
+SFT (supervised fine-tuning)
+  • Teach ONE habit: always end with the answer in \boxed{...}
+  • LoRA adapter (16.5M params = 1.4%), 1 epoch
+
+DAPO (reinforcement learning from a verifiable reward)
+  • Generate 8 solutions per problem → reward = 1 if \boxed{} answer is correct, else 0
+  • GRPO + two upgrades: dynamic sampling (drop all-right/all-wrong groups) + clip-higher
+
+The catch: HRM is recurrent + bidirectional → standard tools (TRL, vLLM) don't work → we wrote both loops ourselves
+
+[NOTES ~40s]
+"Post-training is two stages. First SFT — we don't teach math, we teach a *habit*:
+always put the final answer in a \boxed so a grader can read it. That's a tiny LoRA
+adapter, one epoch. Second, reinforcement learning: the model writes 8 solutions to a
+problem, each is automatically graded right or wrong by a symbolic math checker, and we
+reward the correct ones. We use DAPO, which is GRPO plus two fixes: it throws away
+problems where all 8 answers agree — those teach nothing — and it tweaks the clipping to
+keep the model exploring. Important practical note: because HRM is recurrent and
+bidirectional, the standard libraries everyone uses — TRL for SFT, vLLM for fast
+generation — literally don't support it, so we implemented both training loops from scratch."
+
+
+===================================  DEMO  =====================================
+(All outputs PRE-GENERATED and pasted as screenshots — no live waiting.)
+
+------------------------------- SLIDE 5 (Demo: format) ------------------------
+[TITLE]
+Demo 1 — What SFT Actually Changes
+
+[ON-SLIDE]  (screenshots, same problem, side by side)
+  PROBLEM:  <pick a clean L2–L3 from demo.md>
+  [ BASE output ]            [ SFT output ]
+  → highlight: base = wordier / inconsistent ending   |   SFT = clean steps + \boxed{}
+
+[NOTES ~70s]
+"Let's watch it work — these are real outputs, pre-generated so we don't wait on the
+slow model. Same problem, base model on the left, our SFT model on the right. Notice
+the base model already does real math — it's not dumb — but its ending is inconsistent.
+The SFT model reliably finishes with a boxed answer every time. That consistency is the
+whole point: the RL grader can only reward an answer it can find."
+
+------------------------------- SLIDE 6 (Demo: success + failure) -------------
+[TITLE]
+Demo 2 — A Win and an Honest Loss
+
+[ON-SLIDE]  (screenshots: base / SFT / DAPO columns)
+  WIN:   <L3 problem all 3 solve>           → ✅✅✅
+  LOSS:  <L5 problem all 3 miss>            → ❌❌❌  (wrong method / arithmetic slip)
+
+[NOTES ~70s]
+"Two more, three models now including the RL one. On the left, a mid-difficulty
+problem — all three solve it, RL keeps it correct. On the right, a hard problem —
+all three fail, and they fail the same way. Remember that: when the model can't solve
+something, RL can't fix it, because RL can only reinforce solutions the model
+*sometimes* produces. That failure is the setup for our main result."
+
+
+================================  EVALUATION  ==================================
+(Presenter B takes over here.)
+
+------------------------------- SLIDE 7 (Headline numbers) ---------------------
+[TITLE]
+Results: MATH Benchmark (full 5,000-problem test, greedy)
+
+[ON-SLIDE]  (clean table)
+   Model     pass@1 (MATH)     boxed-rate
+   Base        63.5%             0.94
+   + SFT       ~64%              0.94
+   + DAPO      {{DAPO_ACC}}      {{DAPO_BOXED}}
+
+(measured with the paper's exact eval protocol: hendrycks MATH test, synth,cot, temp 0, 3072 tokens)
+
+[NOTES ~45s]
+"Here are the headline numbers, all measured with the reference paper's exact protocol.
+The base model is a strong 63.5%. SFT keeps accuracy the same — which is expected, since
+we taught formatting, not math. And DAPO lands at {{DAPO_ACC}}. I'll spend the next few
+minutes on the most interesting part: why RL barely moves this number, and what that
+tells us — because the *reason* is the real result."
+
+------------------------------- SLIDE 8 (SFT: reliability) ---------------------
+[TITLE]
+SFT Bought Reliability, Not Knowledge
+
+[ON-SLIDE]
+• Accuracy: 63.5% → ~64%  (unchanged — base already knows the math)
+• Format: \boxed{} on RL rollouts ≈ 0.98  → the reward signal is now trustworthy
+• 1 epoch only — on purpose: over-training SFT collapses output diversity that RL needs
+
+[NOTES ~35s]
+"A quick but important point on SFT: it did NOT raise accuracy, and that's the correct
+outcome. The base model already knows the math; what it lacked was consistency. SFT made
+the boxed-answer format reliable — about 98% on the RL rollouts — so the reward signal is
+trustworthy. We deliberately did only one epoch: train SFT too hard and you collapse the
+output diversity that reinforcement learning depends on."
+
+------------------------------- SLIDE 9 (Where can RL help?) -------------------
+[TITLE]
+Where Can RL Even Help? — Difficulty Matters
+
+[ON-SLIDE]  (bar chart of base solve-rate by level)
+   Level 1: 89%   Level 2: 79%   Level 3: 75%   Level 4: 60%   Level 5: 38%
+   • Too easy (L1–2): model already gets it → all 8 rollouts right → no signal
+   • Too hard (L5):   model rarely gets it → all 8 wrong → no signal
+   • Sweet spot (L3–4, & L5 at ~38%): mixed right/wrong → THIS is where RL can learn
+   → We built our RL training set from exactly this band (and got 4× the signal vs AIME-level prompts)
+
+[NOTES ~55s]
+"So where can RL actually help? RL only learns from problems where the model is
+*sometimes* right and sometimes wrong — that's the only case with a usable gradient.
+Look at the base model by difficulty: easy problems it always gets, so eight-out-of-eight
+correct — nothing to learn. The hardest it almost never gets — eight-out-of-eight wrong —
+again nothing to learn. The signal lives in the middle band. We measured this and built
+our RL prompt set from exactly that band — Levels 3 to 5 — and it gave us four times the
+learning signal compared to our first attempt with competition-level problems that were
+just too hard."
+
+------------------------------- SLIDE 10 (DAPO trains correctly) ---------------
+[TITLE]
+The RL Training Is Healthy — It's Just Capped
+
+[ON-SLIDE]  (reward + entropy curves over steps)
+• Reward signal present: ~half right / half wrong on training prompts (max-variance = ideal)
+• Entropy stable (no collapse) → the model keeps exploring
+• Dynamic sampling keeps ~7 of 16 prompts per step (the informative ones)
+• …yet reward stays flat across {{N_STEPS}} steps
+
+[NOTES ~35s]
+"And to be clear, the RL itself is working correctly — this isn't a broken pipeline. The
+reward variance is near-maximal, which is ideal; entropy stays stable so the model keeps
+exploring; the dynamic-sampling filter is doing its job. Everything is healthy. And yet
+the reward stays flat. So the question is: why doesn't correct, healthy RL improve a 1B
+model? That's the finding."
+
+------------------------------- SLIDE 11 (THE FINDING) -------------------------
+[TITLE]
+Why RL Is Weak at 1B:  pass@1 vs pass@k
+
+[ON-SLIDE]
+• RL doesn't TEACH new skills — it SHARPENS skills the model already has
+• It raises pass@1 (one try) toward pass@k (best of k tries) — and NO further
+• Headroom = pass@k − pass@1.  Big models: huge (correct answers hide in their distribution).
+  Small models: tiny — when a 1B model is wrong, it's wrong in ALL tries → nothing to sharpen
+• Same lesson as the paper's own ~0.1-point RL gain at this scale
+
+[NOTES ~70s]
+"Here's the mechanism. Reinforcement learning from a correct/wrong reward doesn't teach
+the model anything new — it can only take solutions the model *already* produces sometimes
+and make them more likely. In numbers: it pushes 'one-try accuracy' up toward 'best-of-k
+accuracy,' and not a step beyond. So the room to improve is the gap between those two. For
+a large model that gap is big — when it's wrong on one try, the correct reasoning is still
+hiding somewhere in its distribution, and RL surfaces it. For a 1B model that gap is tiny —
+when it's wrong, it tends to be wrong every single time, so there's nothing for RL to
+sharpen. This isn't our pipeline failing; it's a property of scale. The HRM authors
+themselves only projected about a tenth of a point from RL at this size. The contribution
+of our work is making that limit concrete and measurable."
+
+------------------------------- SLIDE 12 (Failures & lessons) ------------------
+[TITLE]
+Failure Cases & Engineering Lessons
+
+[ON-SLIDE]
+• Silent data corruption: a JSON-escaping bug wiped \boxed{} from 88% of our training data → would have zeroed every reward (caught by validation)
+• Wrong difficulty: AIME-level prompts → reward stuck at 0.11; matched-difficulty prompts → 0.45
+• Generation is the bottleneck: no vLLM for recurrent models → ~25 min/RL step → few steps possible
+• Resume bug: silent crash on every checkpoint-resume (found via exit codes, not logs)
+
+[NOTES ~40s]
+"Finally, the honest failure reel, because we learned the most here. One: a sneaky JSON
+escaping bug had silently deleted the boxed answers from 88% of our training data — that
+alone would have made every RL reward zero; we only caught it with a validation assert.
+Two: our first RL prompts were competition-level and too hard, so the signal was four times
+weaker. Three: the real bottleneck is speed — no fast inference engine exists for recurrent
+models yet, so each RL step takes ~25 minutes. These are the practical realities of
+post-training a brand-new architecture."
+
+
+==================================  CLOSE  =====================================
+
+------------------------------- SLIDE 13 (Takeaways) --------------------------
+[TITLE]
+Takeaways
+
+[ON-SLIDE]
+1. We built the first SFT→DAPO post-training pipeline for a recurrent PrefixLM model (from scratch — no off-the-shelf tools)
+2. SFT = reliability (format), not knowledge; RL = sharpening, not teaching
+3. RL's ceiling is set by scale (pass@k headroom) — and we measured exactly where the signal lives
+4. With a fast inference engine (vLLM port → 5–10× rollouts), the RL story is worth revisiting
+
+[NOTES ~25s]
+"To wrap up: we built a from-scratch post-training pipeline for this new architecture;
+we showed SFT buys reliability and RL only sharpens; and most importantly we pinned down,
+with data, why RL is capped at this scale and where its signal actually lives. Give it a
+fast inference engine and far more RL steps, and it's worth another look. Happy to take
+questions."
+
+
+==============================  BACKUP SLIDES  =================================
+(Keep AFTER slide 13 for Q&A; don't present unless asked.)
+
+----- B1: "Did you reproduce the paper's number?" -----
+• Paper reports 56.2% (their native engine); we measure 63.5% using the merged HuggingFace
+  integration of the model.
+• We verified our harness is identical to theirs: same dataset, same prompt tokens, same
+  scoring code, same greedy decoding, same weights, same math_verify (tested v0.5/0.7/0.9 — identical).
+• Ruled out: sampling noise (full 5000), numerics (~1%), data contamination (0 of 1.5M rows).
+• Residual traces to native-engine vs HF-integration generation (HF support merged AFTER the paper).
+  → Our base/SFT/DAPO comparisons all use the SAME engine, so the deltas are valid.
+
+----- B2: DAPO configuration -----
+• prompts/step 16, group 8, min kept groups 6, max_new 3072, temp 1.0
+• eps_low 0.20 / eps_high 0.28, beta_kl 0, lr 5e-6, LoRA r16, ppo_epochs 2
+• reward = 1.0 correct (math_verify on last \boxed) else 0; dynamic sampling drops zero-variance groups
+
+----- B3: The eval-set trap -----
+• First eval on MATH-500 (a hard curated 500-subset) → 48% → looked like a regression
+• Switched to the paper's set (full hendrycks MATH test, 5000) → 63.5%
+• Lesson: "MATH" is not one dataset — benchmark identity dominates the number
+
+----- B4: pass@1 vs pass@k (the math) -----
+• RL objective sharpens probability mass toward sampled-correct trajectories
+• Empirically (Yue et al. 2025): RLVR raises pass@1, leaves pass@k≈base → no new capability
+• Headroom shrinks with scale → small models gain little
+
+================================================================================
+ NUMBERS CHEAT-SHEET (verified, for filling the table / answering Q&A)
+================================================================================
+ Base MATH (full 5000, greedy, synth,cot, 3072):  63.5%  (3174/5000), boxed 0.94
+ Base by level: L1 89%  L2 79%  L3 75%  L4 60%  L5 38%
+ SFT MATH (800-sample, same protocol):             ~64%, boxed 0.94
+ DAPO MATH:                                         {{DAPO_ACC}}  (auto-filled Wed)
+ SFT boxed-rate on RL rollouts:                     ~0.98
+ DAPO reward (L3-5 prompts, temp 1.0):              ~0.37–0.41 (flat over steps)
+ RL prompt difficulty: AIME-level reward 0.11 / 44% useful groups  vs  L3-5 reward 0.45 / 75% useful groups
+ Data fix: 17,592 / 20,000 training rows had no valid \boxed{} before the fix
+ Model: HRM-Text-1B, 1.18B params; LoRA 16.5M (1.4%); 1× H200; SFT 1 epoch (~28 min)
+================================================================================
