@@ -25,10 +25,12 @@ def load_math(dataset):
             for ex in load_dataset("EleutherAI/hendrycks_math", sub, split="test"):
                 gt = extract_last_boxed(ex["solution"])
                 if gt:
-                    rows.append({"problem": ex["problem"], "answer": gt, "level": ex.get("level")})
+                    rows.append({"problem": ex["problem"], "answer": gt, "level": ex.get("level"),
+                                 "type": ex.get("type") or sub})
     elif dataset == "math500":
         for ex in load_dataset("HuggingFaceH4/MATH-500", split="test"):
-            rows.append({"problem": ex["problem"], "answer": ex["answer"], "level": ex.get("level")})
+            rows.append({"problem": ex["problem"], "answer": ex["answer"], "level": ex.get("level"),
+                         "type": ex.get("subject") or ex.get("type")})
     else:
         raise ValueError(dataset)
     return rows
@@ -71,6 +73,8 @@ def main():
 
     correct = boxed = 0
     by_level = {}
+    by_type = {}
+    by_type_level = {}
     for s in range(0, len(rows), args.micro):
         ch = rows[s:s + args.micro]; ps = [pid(r["problem"]) for r in ch]
         T = max(len(p) for p in ps); B = len(ch)
@@ -90,15 +94,23 @@ def main():
             ok = bool(is_correct(txt, r["answer"])) if hb else False
             boxed += int(hb); correct += int(ok)
             lv = r.get("level") or "?"; by_level.setdefault(lv, [0, 0]); by_level[lv][0] += int(ok); by_level[lv][1] += 1
+            ty = r.get("type") or "?"; by_type.setdefault(ty, [0, 0]); by_type[ty][0] += int(ok); by_type[ty][1] += 1
+            tl = f"{ty}|{lv}"; by_type_level.setdefault(tl, [0, 0]); by_type_level[tl][0] += int(ok); by_type_level[tl][1] += 1
         print(f"  {s+B}/{len(rows)} acc={correct/(s+B):.3f}", flush=True)
     print(f"\n==== MATH [{args.tag}] {args.dataset}/{args.condition}/max_new={args.max_new_tokens} ====", flush=True)
     print(f"  pass@1(greedy) = {correct/len(rows):.4f}  ({correct}/{len(rows)})  boxed={boxed/len(rows):.4f}", flush=True)
     for lv in sorted(by_level):
         c, n = by_level[lv]; print(f"    {lv}: {c}/{n} = {c/max(1,n):.3f}", flush=True)
+    for ty in sorted(by_type):
+        c, n = by_type[ty]; print(f"    {ty}: {c}/{n} = {c/max(1,n):.3f}", flush=True)
+    for tl in sorted(by_type_level):
+        c, n = by_type_level[tl]; print(f"    [TL] {tl}: {c}/{n}", flush=True)
     if args.out_json:
         import json as _j
         _j.dump({"correct": correct, "total": len(rows), "boxed": boxed,
-                 "by_level": {k: v for k, v in by_level.items()}}, open(args.out_json, "w"))
+                 "by_level": {k: v for k, v in by_level.items()},
+                 "by_type": {k: v for k, v in by_type.items()},
+                 "by_type_level": {k: v for k, v in by_type_level.items()}}, open(args.out_json, "w"))
 
 
 if __name__ == "__main__":

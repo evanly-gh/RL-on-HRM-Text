@@ -141,14 +141,14 @@ Results: MATH Benchmark (full 5,000-problem test, greedy)
    Model     pass@1 (MATH)     boxed-rate
    Base        63.5%             0.94
    + SFT       ~64%              0.94
-   + DAPO      {{DAPO_ACC}}      {{DAPO_BOXED}}
+   + DAPO      66.4% (531/800)      ~0.95
 
 (measured with the paper's exact eval protocol: hendrycks MATH test, synth,cot, temp 0, 3072 tokens)
 
 [NOTES ~45s]
 "Here are the headline numbers, all measured with the reference paper's exact protocol.
 The base model is a strong 63.5%. SFT keeps accuracy the same — which is expected, since
-we taught formatting, not math. And DAPO lands at {{DAPO_ACC}}. I'll spend the next few
+we taught formatting, not math. And DAPO lands at 66.4% (531/800). I'll spend the next few
 minutes on the most interesting part: why RL barely moves this number, and what that
 tells us — because the *reason* is the real result."
 
@@ -197,7 +197,7 @@ The RL Training Is Healthy — It's Just Capped
 • Reward signal present: ~half right / half wrong on training prompts (max-variance = ideal)
 • Entropy stable (no collapse) → the model keeps exploring
 • Dynamic sampling keeps ~7 of 16 prompts per step (the informative ones)
-• …yet reward stays flat across {{N_STEPS}} steps
+• …yet reward stays flat across 80 steps
 
 [NOTES ~35s]
 "And to be clear, the RL itself is working correctly — this isn't a broken pipeline. The
@@ -302,7 +302,7 @@ questions."
  Base MATH (full 5000, greedy, synth,cot, 3072):  63.5%  (3174/5000), boxed 0.94
  Base by level: L1 89%  L2 79%  L3 75%  L4 60%  L5 38%
  SFT MATH (800-sample, same protocol):             ~64%, boxed 0.94
- DAPO MATH:                                         {{DAPO_ACC}}  (auto-filled Wed)
+ DAPO MATH:                                         66.4% (531/800)  (auto-filled Wed)
  SFT boxed-rate on RL rollouts:                     ~0.98
  DAPO reward (L3-5 prompts, temp 1.0):              ~0.37–0.41 (flat over steps)
  RL prompt difficulty: AIME-level reward 0.11 / 44% useful groups  vs  L3-5 reward 0.45 / 75% useful groups

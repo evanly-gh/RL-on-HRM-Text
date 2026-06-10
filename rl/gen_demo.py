@@ -45,8 +45,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sft", default=""); ap.add_argument("--dapo", default="")
     ap.add_argument("--max-new-tokens", type=int, default=2048)
+    ap.add_argument("--problems", default="", help="jsonl with {level,problem,gold}; else use built-in")
     ap.add_argument("--out", default="/mmfs1/gscratch/intelligentsystems/evanly/hrm-rl-2026/runs/demo")
     args = ap.parse_args()
+    global PROBLEMS
+    if args.problems:
+        PROBLEMS = [(r["level"], r["problem"], r["gold"])
+                    for r in (json.loads(l) for l in open(args.problems) if l.strip())]
     tok = AutoTokenizer.from_pretrained("sapientinc/HRM-Text-1B", trust_remote_code=True)
     models = [("base", "")]
     if args.sft: models.append(("SFT", args.sft))
